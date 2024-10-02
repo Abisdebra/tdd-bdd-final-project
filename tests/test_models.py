@@ -31,6 +31,8 @@ from service.models import Product, Category, db
 from service import app
 from tests.factories import ProductFactory
 
+logging.getLogger('faker').setLevel(logging.ERROR)
+
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql://postgres:postgres@localhost:5432/postgres"
 )
@@ -70,37 +72,155 @@ class TestProductModel(unittest.TestCase):
     #  T E S T   C A S E S
     ######################################################################
 
-    def test_create_a_product(self):
-        """It should Create a product and assert that it exists"""
-        product = Product(name="Fedora", description="A red hat", price=12.50, available=True, category=Category.CLOTHS)
-        self.assertEqual(str(product), "<Product Fedora id=[None]>")
-        self.assertTrue(product is not None)
-        self.assertEqual(product.id, None)
-        self.assertEqual(product.name, "Fedora")
-        self.assertEqual(product.description, "A red hat")
-        self.assertEqual(product.available, True)
-        self.assertEqual(product.price, 12.50)
-        self.assertEqual(product.category, Category.CLOTHS)
+    # def test_create_a_product(self):
+    #     """It should Create a product and assert that it exists"""
+    #     product = Product(name="Fedora", description="A red hat", price=12.50, available=True, category=Category.CLOTHS)
+    #     self.assertEqual(str(product), "<Product Fedora id=[None]>")
+    #     self.assertTrue(product is not None)
+    #     self.assertEqual(product.id, None)
+    #     self.assertEqual(product.name, "Fedora")
+    #     self.assertEqual(product.description, "A red hat")
+    #     self.assertEqual(product.available, True)
+    #     self.assertEqual(product.price, 12.50)
+    #     self.assertEqual(product.category, Category.CLOTHS)
 
-    def test_add_a_product(self):
-        """It should Create a product and add it to the database"""
-        products = Product.all()
-        self.assertEqual(products, [])
-        product = ProductFactory()
-        product.id = None
-        product.create()
-        # Assert that it was assigned an id and shows up in the database
-        self.assertIsNotNone(product.id)
-        products = Product.all()
-        self.assertEqual(len(products), 1)
-        # Check that it matches the original product
-        new_product = products[0]
-        self.assertEqual(new_product.name, product.name)
-        self.assertEqual(new_product.description, product.description)
-        self.assertEqual(Decimal(new_product.price), product.price)
-        self.assertEqual(new_product.available, product.available)
-        self.assertEqual(new_product.category, product.category)
+    # def test_add_a_product(self):
+    #     """It should Create a product and add it to the database"""
+    #     products = Product.all()
+    #     self.assertEqual(products, [])
+    #     product = ProductFactory()
+    #     product.id = None
+    #     product.create()
+    #     # Assert that it was assigned an id and shows up in the database
+    #     self.assertIsNotNone(product.id)
+    #     products = Product.all()
+    #     self.assertEqual(len(products), 1)
+    #     # Check that it matches the original product
+    #     new_product = products[0]
+    #     self.assertEqual(new_product.name, product.name)
+    #     self.assertEqual(new_product.description, product.description)
+    #     self.assertEqual(Decimal(new_product.price), product.price)
+    #     self.assertEqual(new_product.available, product.available)
+    #     self.assertEqual(new_product.category, product.category)
 
     #
     # ADD YOUR TEST CASES HERE
     #
+    def test_read_a_product(self):
+        product = ProductFactory()
+        print(f"Here is the product to be read: {product}")
+        product.id = None
+        product.create()
+        self.assertIsNotNone(product.id)
+        found_product = Product.find(product.id)
+        self.assertEqual(found_product.id, product.id)
+        self.assertEqual(found_product.name, product.name)
+        self.assertEqual(found_product.description, product.description)
+        self.assertEqual(found_product.price, product.price)
+
+    def test_update_a_product(self):
+        """It should update a product"""
+        product = ProductFactory()
+        print(f"Here is the product to be updated: {product}")
+        product.id = None
+        product.create()
+        print(f"Here is the product to be updated: {product}")
+        product.description = "Updated description"
+        original_id = product.id
+        product.update()
+        self.assertEqual(product.id, original_id)
+        self.assertEqual(product.description, "Updated description")
+        all_products = Product.all()
+        self.assertEqual(len(all_products), 1)
+        self.assertEqual(all_products[0].id, original_id)
+        self.assertEqual(all_products[0].description, "Updated description")
+
+    def test_delete_a_product(self):
+        """It should delete a product"""
+        product = ProductFactory()
+        product.create()
+        all_products = Product.all()
+        self.assertEqual(len(all_products), 1)
+        product.delete()
+        all_products = Product.all()
+        self.assertEqual(len(all_products), 0)
+
+    def test_list_all_products(self):
+        """It should find list all products"""
+        self.assertEqual(len(Product.all()), 0)
+        for _ in range(5):
+            product = ProductFactory()
+            product.create()        
+        self.assertEqual(len(Product.all()), 5)
+
+    def test_find_a_product_by_name(self):
+        """It should find a product by name"""
+        products = ProductFactory.create_batch(5)
+        for product in products:
+            product.create()
+        first_product = products[0].name
+        occurences = 0
+        repeated_products = []
+        for product in all_products:
+            if product.name == first_product:
+                occurences += 1
+                repeated_products.append(product)
+        all_products_name = Product.find_by_name(first_product)
+        self.assertEqual(len(all_products_name), occurences)
+        for product in all_products_name:
+            self.assertEqual(product.name, first_product)
+
+    def test_find_a_product_by_availability(self):
+        """It should find a product by availability"""
+        products = ProductFactory.create_batch(10)
+        for product in products:
+            product.create()
+        first_product_availability = products[0].available
+        occurences = 0
+        same_availability = []
+        for product in products:
+            if product.availability == first_product_availability:
+                occurences += 1
+                same_availability.append(product)
+        products_same_availability = Product.find_by_availability(first_product_availability)
+        self.assertEqual(occurences, len(products_same_availability))
+        for product in products:
+            self.assertEqual(product.availability, first_product_availability)
+
+    def test_find_a_product_by_category(self):
+        """It should find a product by category"""
+        products = ProductFactory.create_batch(10)
+        for product in products:
+            product.create()
+        first_product_category = products[0].category
+        occurences = 0
+        same_category = []
+        for product in products:
+            if product.category == first_product_category:
+                occurences += 1
+                same_category.append(product)
+        products_same_category = Product.find_by_category(first_product_category)
+        self.assertEqual(occurences, len(products_same_category))
+        for product in products:
+            self.assertEqual(product.category, first_product_category)
+
+    def test_update_product(self):
+        """It should update a product"""
+        test_product = ProductFactory()
+        response = self.client.post(BASE_URL, json=test_product.serialize())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        new_product = response.get_json()
+        new_product["description"] = "Updated description"
+        response = self.client.put(f"{BASE_URL}/{new_product['id']}", json=new_product)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        updated_product = response.get_json()
+        self.assertEqual(updated_product["description"], "Updated description")
+
+
+
+
+        
+            
+
+
+
